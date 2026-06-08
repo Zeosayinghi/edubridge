@@ -279,6 +279,7 @@ select {
       <div class="nav-item" onclick="showPage('wrong')"><span class="nav-icon">📝</span> 錯題記錄</div>
       <div class="nav-item" onclick="showPage('ai')"><span class="nav-icon">🤖</span> AI 助理</div>
       <div class="nav-item" onclick="showPage('ability')"><span class="nav-icon">📊</span> 能力分析</div>
+      <div class="nav-item" onclick="showPage('courses')"><span class="nav-icon">🎬</span> 觀看課程</div>
     </nav>
     <div class="sidebar-bottom">
       <button class="btn-logout" onclick="handleLogout()">登出</button>
@@ -382,6 +383,23 @@ select {
         <p>了解你在各科目的掌握程度，找出需要加強的地方</p>
       </div>
       <div class="ability-grid" id="ability-grid"></div>
+    </div>
+
+    <!-- COURSES -->
+    <div class="page" id="page-courses">
+      <div class="page-header">
+        <h1>觀看課程</h1>
+        <p>選擇科目，點擊影片直接在頁面內播放</p>
+      </div>
+      <div class="courses-filter" id="courses-filter"></div>
+      <div id="courses-player" style="display:none;margin-bottom:1.5rem;">
+        <div style="position:relative;padding-bottom:56.25%;height:0;border-radius:16px;overflow:hidden;background:#000;">
+          <iframe id="yt-iframe" style="position:absolute;top:0;left:0;width:100%;height:100%;" frameborder="0" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+        </div>
+        <div id="now-playing" style="margin-top:0.8rem;font-size:0.95rem;font-weight:500;color:var(--ink);"></div>
+        <button onclick="closeCoursePlayer()" style="margin-top:0.5rem;background:transparent;border:1.5px solid var(--border);border-radius:100px;padding:0.4rem 1rem;font-size:0.8rem;cursor:pointer;color:var(--ink-soft);">✕ 關閉播放器</button>
+      </div>
+      <div id="courses-list"></div>
     </div>
 
   </div>
@@ -745,6 +763,85 @@ function showPage(name) {
   event.currentTarget.classList.add('active');
   if (name === 'ability') renderAbility();
   if (name === 'wrong') renderWrongQuestions();
+}
+
+// ── COURSES ──
+let allCourses = [];
+let currentSubjectFilter = 'all';
+
+async function loadCourses() {
+  const { data, error } = await db.from('courses').select('*').order('created_at', { ascending: false });
+  allCourses = data || [];
+  renderCoursesFilter();
+  renderCoursesList();
+}
+
+function renderCoursesFilter() {
+  const el = document.getElementById('courses-filter');
+  const subjects = ['all', ...new Set(allCourses.map(c => c.subject_id))];
+  el.innerHTML = subjects.map(sid => {
+    const subj = SUBJECTS.find(s => s.id === sid);
+    const label = sid === 'all' ? '全部科目' : (subj ? subj.icon + ' ' + subj.name : sid);
+    return `<button class="filter-btn ${currentSubjectFilter === sid ? 'active' : ''}" onclick="filterCourses('${sid}')">${label}</button>`;
+  }).join('');
+}
+
+function filterCourses(subjectId) {
+  currentSubjectFilter = subjectId;
+  renderCoursesFilter();
+  renderCoursesList();
+}
+
+function renderCoursesList() {
+  const el = document.getElementById('courses-list');
+  const filtered = currentSubjectFilter === 'all' ? allCourses : allCourses.filter(c => c.subject_id === currentSubjectFilter);
+  if (!filtered.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">🎬</div><h3>此科目尚無課程</h3><p>管理員尚未新增影片，請稍後再查看。</p></div>';
+    return;
+  }
+  el.innerHTML = '<div class="courses-grid">' + filtered.map(c => {
+    const subj = SUBJECTS.find(s => s.id === c.subject_id);
+    const videoId = extractYouTubeId(c.youtube_url);
+    const thumb = videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : '';
+    return `<div class="course-card" id="card-${c.id}" onclick="playCourse('${c.id}', '${videoId}', \`${c.title}\`)">
+      <div class="course-thumb">
+        ${thumb ? `<img src="${thumb}" alt="${c.title}">` : '<div style="position:absolute;inset:0;background:#2d6a4f"></div>'}
+        <div class="course-thumb-play"><div class="play-btn">▶</div></div>
+      </div>
+      <div class="course-info">
+        <span class="course-subject-tag">${subj ? subj.icon + ' ' + subj.name : c.subject_id}</span>
+        <div class="course-title">${c.title}</div>
+        ${c.description ? `<div class="course-desc">${c.description}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function extractYouTubeId(url) {
+  if (!url) return null;
+  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+function playCourse(id, videoId, title) {
+  if (!videoId) return;
+  document.querySelectorAll('.course-card').forEach(c => c.classList.remove('playing'));
+  const card = document.getElementById('card-' + id);
+  if (card) card.classList.add('playing');
+  const player = document.getElementById('courses-player');
+  const iframe = document.getElementById('yt-iframe');
+  const nowPlaying = document.getElementById('now-playing');
+  iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+  nowPlaying.textContent = '▶ 正在播放：' + title;
+  player.style.display = 'block';
+  player.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeCoursePlayer() {
+  const iframe = document.getElementById('yt-iframe');
+  iframe.src = '';
+  document.getElementById('courses-player').style.display = 'none';
+  document.querySelectorAll('.course-card').forEach(c => c.classList.remove('playing'));
 }
 
 async function handleLogout() {
