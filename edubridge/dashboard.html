@@ -247,6 +247,33 @@ select {
 /* SECTION TITLE */
 .section-title { font-family: 'Noto Serif TC', serif; font-size: 1.1rem; font-weight: 600; color: var(--ink); margin-bottom: 1rem; margin-top: 1.5rem; }
 
+.courses-filter { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.filter-btn { padding: 0.45rem 1.1rem; border-radius: 100px; border: 1.5px solid var(--border); background: white; font-size: 0.8rem; cursor: pointer; color: var(--ink-soft); transition: all 0.2s; font-family: "Noto Sans TC", sans-serif; font-weight: 500; }
+.filter-btn:hover { border-color: var(--mountain-light); color: var(--mountain); background: var(--mountain-pale); }
+.filter-btn.active { background: var(--mountain); color: white; border-color: var(--mountain); box-shadow: 0 2px 12px rgba(45,106,79,0.3); }
+.courses-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; }
+.course-card { background: white; border-radius: 16px; border: 1px solid var(--border); overflow: hidden; cursor: pointer; transition: all 0.25s; box-shadow: 0 2px 8px rgba(26,26,46,0.04); }
+.course-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(26,26,46,0.12); border-color: var(--mountain-light); }
+.course-card.playing { border-color: var(--mountain); border-width: 2px; box-shadow: 0 0 0 4px rgba(45,106,79,0.12); }
+.course-thumb { position: relative; padding-bottom: 56.25%; background: var(--ink); overflow: hidden; }
+.course-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
+.course-card:hover .course-thumb img { transform: scale(1.04); }
+.course-thumb-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.35); opacity: 0; transition: opacity 0.2s; }
+.course-card:hover .course-thumb-play { opacity: 1; }
+.play-btn { width: 48px; height: 48px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--mountain); font-size: 1rem; box-shadow: 0 4px 16px rgba(0,0,0,0.3); transform: scale(0.9); transition: transform 0.2s; }
+.course-card:hover .play-btn { transform: scale(1); }
+.course-info { padding: 1rem 1.1rem 1.1rem; }
+.course-subject-tag { display: inline-block; background: var(--mountain-pale); color: var(--mountain); font-size: 0.68rem; padding: 0.22rem 0.65rem; border-radius: 100px; margin-bottom: 0.55rem; font-weight: 500; }
+.course-title { font-size: 0.92rem; font-weight: 500; color: var(--ink); margin-bottom: 0.35rem; line-height: 1.45; }
+.course-desc { font-size: 0.77rem; color: var(--ink-soft); line-height: 1.55; }
+.course-player-wrap { background: var(--ink); border-radius: 18px; overflow: hidden; margin-bottom: 1.5rem; box-shadow: 0 8px 32px rgba(26,26,46,0.2); }
+.course-player-header { display: flex; align-items: center; justify-content: space-between; padding: 0.9rem 1.2rem; background: rgba(255,255,255,0.06); }
+.course-player-title { font-size: 0.88rem; color: white; font-weight: 500; }
+.btn-close-player { background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.6); width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+.btn-close-player:hover { background: rgba(255,255,255,0.2); color: white; }
+.course-player-frame { position: relative; padding-bottom: 56.25%; }
+.course-player-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+
 @media (max-width: 900px) {
   .sidebar { display: none; }
   .main { margin-left: 0; }
@@ -392,12 +419,16 @@ select {
         <p>選擇科目，點擊影片直接在頁面內播放</p>
       </div>
       <div class="courses-filter" id="courses-filter"></div>
-      <div id="courses-player" style="display:none;margin-bottom:1.5rem;">
-        <div style="position:relative;padding-bottom:56.25%;height:0;border-radius:16px;overflow:hidden;background:#000;">
-          <iframe id="yt-iframe" style="position:absolute;top:0;left:0;width:100%;height:100%;" frameborder="0" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+      <div id="courses-player" style="display:none">
+        <div class="course-player-wrap">
+          <div class="course-player-header">
+            <div class="course-player-title">▶ <span id="now-playing">正在播放</span></div>
+            <button class="btn-close-player" onclick="closeCoursePlayer()" title="關閉">✕</button>
+          </div>
+          <div class="course-player-frame">
+            <iframe id="yt-iframe" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+          </div>
         </div>
-        <div id="now-playing" style="margin-top:0.8rem;font-size:0.95rem;font-weight:500;color:var(--ink);"></div>
-        <button onclick="closeCoursePlayer()" style="margin-top:0.5rem;background:transparent;border:1.5px solid var(--border);border-radius:100px;padding:0.4rem 1rem;font-size:0.8rem;cursor:pointer;color:var(--ink-soft);">✕ 關閉播放器</button>
       </div>
       <div id="courses-list"></div>
     </div>
@@ -806,7 +837,7 @@ function renderCoursesList() {
     const thumb = videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : '';
     return `<div class="course-card" id="card-${c.id}" onclick="playCourse('${c.id}', '${videoId}', \`${c.title}\`)">
       <div class="course-thumb">
-        ${thumb ? `<img src="${thumb}" alt="${c.title}">` : '<div style="position:absolute;inset:0;background:#2d6a4f"></div>'}
+        ${thumb ? `<img src="${thumb}" alt="${c.title}" loading="lazy">` : '<div style="position:absolute;inset:0;background:var(--mountain)"></div>'}
         <div class="course-thumb-play"><div class="play-btn">▶</div></div>
       </div>
       <div class="course-info">
@@ -833,7 +864,7 @@ function playCourse(id, videoId, title) {
   const iframe = document.getElementById('yt-iframe');
   const nowPlaying = document.getElementById('now-playing');
   iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
-  nowPlaying.textContent = '▶ 正在播放：' + title;
+  nowPlaying.textContent = title;
   player.style.display = 'block';
   player.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
