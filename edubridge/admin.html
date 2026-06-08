@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>橋學 — 管理後台</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink: #1a1a2e; --ink-soft: #3d3d5c;
+  --mountain: #2d6a4f; --mountain-light: #52b788; --mountain-pale: #d8f3dc;
+  --gold: #e9a84c; --gold-pale: #fdf3e3;
+  --coral: #e07b54; --coral-pale: #fde8e0;
+  --cream: #faf8f4; --border: rgba(45,106,79,0.15);
+  --shadow: 0 4px 24px rgba(26,26,46,0.08);
+}
+body { font-family: 'Noto Sans TC', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; }
+
+nav {
+  background: var(--ink); padding: 1rem 2rem;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nav-logo { font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: var(--mountain-light); }
+.nav-badge { background: var(--mountain); color: white; font-size: 0.72rem; padding: 0.25rem 0.7rem; border-radius: 100px; }
+.btn-logout-nav { background: transparent; color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 0.4rem 0.9rem; font-size: 0.8rem; cursor: pointer; font-family: 'Noto Sans TC', sans-serif; transition: all 0.2s; }
+.btn-logout-nav:hover { color: white; border-color: rgba(255,255,255,0.4); }
+
+.container { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+
+h1 { font-family: 'DM Serif Display', serif; font-size: 1.8rem; color: var(--ink); margin-bottom: 0.3rem; }
+.subtitle { font-size: 0.88rem; color: var(--ink-soft); margin-bottom: 2rem; }
+
+/* ADD FORM */
+.add-form {
+  background: white; border-radius: 18px; padding: 2rem;
+  border: 1px solid var(--border); box-shadow: var(--shadow); margin-bottom: 2rem;
+}
+.form-title { font-size: 1rem; font-weight: 500; color: var(--ink); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+.form-group.full { grid-column: 1 / -1; }
+label { font-size: 0.82rem; font-weight: 500; color: var(--ink-soft); }
+input, select, textarea {
+  padding: 0.7rem 0.9rem; border: 1.5px solid var(--border); border-radius: 10px;
+  font-size: 0.88rem; font-family: 'Noto Sans TC', sans-serif; color: var(--ink);
+  background: white; outline: none; transition: border-color 0.2s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--mountain-light); }
+textarea { resize: vertical; min-height: 70px; }
+
+/* Preview */
+.preview-area { margin-top: 1rem; display: none; }
+.preview-area.show { display: block; }
+.preview-label { font-size: 0.78rem; color: var(--ink-soft); margin-bottom: 0.5rem; }
+.preview-frame { position: relative; padding-bottom: 30%; background: #1a1a2e; border-radius: 10px; overflow: hidden; }
+.preview-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+
+.btn-add {
+  background: var(--mountain); color: white; border: none;
+  padding: 0.75rem 2rem; border-radius: 100px; font-size: 0.9rem;
+  font-family: 'Noto Sans TC', sans-serif; cursor: pointer;
+  transition: background 0.2s; display: flex; align-items: center; gap: 0.5rem;
+}
+.btn-add:hover { background: var(--mountain-light); }
+.btn-add:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.msg { padding: 0.7rem 1rem; border-radius: 8px; font-size: 0.85rem; margin-top: 1rem; display: none; }
+.msg.success { background: var(--mountain-pale); color: var(--mountain); display: block; }
+.msg.error { background: var(--coral-pale); color: var(--coral); display: block; }
+
+/* COURSE LIST */
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.section-header h2 { font-size: 1.1rem; font-weight: 500; color: var(--ink); }
+.count-badge { background: var(--mountain-pale); color: var(--mountain); font-size: 0.75rem; padding: 0.2rem 0.7rem; border-radius: 100px; font-weight: 500; }
+
+.filter-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.filter-btn { padding: 0.35rem 0.9rem; border-radius: 100px; border: 1.5px solid var(--border); background: white; font-size: 0.78rem; cursor: pointer; color: var(--ink-soft); transition: all 0.2s; font-family: 'Noto Sans TC', sans-serif; }
+.filter-btn.active { background: var(--mountain); color: white; border-color: var(--mountain); }
+
+.course-table { width: 100%; border-collapse: collapse; }
+.course-table th { text-align: left; font-size: 0.78rem; font-weight: 500; color: var(--ink-soft); padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border); }
+.course-table td { padding: 0.8rem; border-bottom: 1px solid rgba(45,106,79,0.08); vertical-align: middle; }
+.course-table tr:last-child td { border-bottom: none; }
+.course-table tr:hover td { background: var(--cream); }
+
+.thumb-sm { width: 80px; height: 45px; border-radius: 6px; object-fit: cover; background: #1a1a2e; }
+.thumb-placeholder { width: 80px; height: 45px; border-radius: 6px; background: var(--mountain-pale); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+.course-name { font-size: 0.88rem; font-weight: 500; color: var(--ink); }
+.course-subject-tag { display: inline-block; background: var(--mountain-pale); color: var(--mountain); font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 100px; font-weight: 500; }
+.course-desc-sm { font-size: 0.78rem; color: var(--ink-soft); margin-top: 0.2rem; }
+.yt-link { font-size: 0.75rem; color: var(--mountain); text-decoration: none; }
+.yt-link:hover { text-decoration: underline; }
+.btn-delete { background: var(--coral-pale); color: var(--coral); border: none; border-radius: 8px; padding: 0.35rem 0.8rem; font-size: 0.78rem; cursor: pointer; font-family: 'Noto Sans TC', sans-serif; transition: all 0.2s; }
+.btn-delete:hover { background: var(--coral); color: white; }
+
+.empty-admin { text-align: center; padding: 3rem; color: var(--ink-soft); font-size: 0.9rem; }
+.spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#loading-screen { position: fixed; inset: 0; background: var(--cream); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 1rem; z-index: 99; }
+.spinner-lg { width: 36px; height: 36px; border: 3px solid var(--mountain-pale); border-top-color: var(--mountain); border-radius: 50%; animation: spin 0.8s linear infinite; }
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="spinner-lg"></div>
+  <p style="font-size:0.85rem;color:var(--ink-soft)">驗證管理員身份...</p>
+</div>
+
+<div id="app" style="display:none">
+  <nav>
+    <div class="nav-logo">⛰ EduBridge <span style="font-family:'Noto Sans TC';font-size:0.8rem;color:rgba(255,255,255,0.4);font-weight:400;"> 管理後台</span></div>
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <span class="nav-badge">管理員</span>
+      <span id="nav-email" style="font-size:0.8rem;color:rgba(255,255,255,0.5);"></span>
+      <button class="btn-logout-nav" onclick="handleLogout()">登出</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h1>課程影片管理</h1>
+    <p class="subtitle">新增或刪除各科目的 YouTube 課程影片，學生在儀表板的「觀看課程」即可看到。</p>
+
+    <!-- ADD FORM -->
+    <div class="add-form">
+      <div class="form-title">➕ 新增課程影片</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>科目</label>
+          <select id="f-subject">
+            <option value="">請選擇科目...</option>
+            <option value="math">📐 數學</option>
+            <option value="physics">⚡ 物理</option>
+            <option value="chemistry">🔬 化學</option>
+            <option value="biology">🌿 生物</option>
+            <option value="chinese">📖 國文</option>
+            <option value="english">🇬🇧 英文</option>
+            <option value="history">🏛 歷史</option>
+            <option value="geography">🌏 地理</option>
+            <option value="civics">⚖️ 公民</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>影片標題</label>
+          <input type="text" id="f-title" placeholder="例：二次函數完整教學" />
+        </div>
+        <div class="form-group full">
+          <label>YouTube 網址</label>
+          <input type="url" id="f-url" placeholder="https://www.youtube.com/watch?v=..." oninput="previewVideo()" />
+        </div>
+        <div class="form-group full">
+          <label>簡介（選填）</label>
+          <textarea id="f-desc" placeholder="課程內容簡短說明..."></textarea>
+        </div>
+      </div>
+
+      <div class="preview-area" id="preview-area">
+        <div class="preview-label">影片預覽</div>
+        <div class="preview-frame">
+          <iframe id="preview-iframe" allowfullscreen></iframe>
+        </div>
+      </div>
+
+      <div style="margin-top:1rem;display:flex;align-items:center;gap:1rem;">
+        <button class="btn-add" id="btn-add" onclick="addCourse()">
+          <span id="btn-add-text">新增影片</span>
+        </button>
+        <button onclick="clearForm()" style="background:transparent;border:none;font-size:0.85rem;color:var(--ink-soft);cursor:pointer;font-family:'Noto Sans TC',sans-serif;">清除</button>
+      </div>
+      <div class="msg" id="form-msg"></div>
+    </div>
+
+    <!-- COURSE LIST -->
+    <div style="background:white;border-radius:18px;padding:2rem;border:1px solid var(--border);box-shadow:var(--shadow);">
+      <div class="section-header">
+        <h2>現有課程影片</h2>
+        <span class="count-badge" id="course-count">0 部</span>
+      </div>
+      <div class="filter-row" id="admin-filter"></div>
+      <div id="admin-course-list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://twbxgwtptkhuixordmcl.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3Ynhnd3RwdGtodWl4b3JkbWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODM3MjEsImV4cCI6MjA5NTk1OTcyMX0.8XwEDXL2w37KwjAHyo4TdoEHYrYAQtGPs9wsSW5dlT8';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const SUBJECTS = {
+  math: '📐 數學', physics: '⚡ 物理', chemistry: '🔬 化學',
+  biology: '🌿 生物', chinese: '📖 國文', english: '🇬🇧 英文',
+  history: '🏛 歷史', geography: '🌏 地理', civics: '⚖️ 公民',
+};
+
+let courses = [];
+let filterSubject = 'all';
+
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { window.location.href = 'auth.html'; return; }
+  document.getElementById('nav-email').textContent = session.user.email;
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  await loadCourses();
+}
+
+async function loadCourses() {
+  const { data } = await db.from('courses').select('*').order('created_at', { ascending: false });
+  courses = data || [];
+  renderFilter();
+  renderList();
+}
+
+function renderFilter() {
+  const el = document.getElementById('admin-filter');
+  const subjects = ['all', ...new Set(courses.map(c => c.subject_id))];
+  el.innerHTML = subjects.map(sid => {
+    const label = sid === 'all' ? '全部' : (SUBJECTS[sid] || sid);
+    return `<button class="filter-btn ${filterSubject === sid ? 'active' : ''}" onclick="setFilter('${sid}')">${label}</button>`;
+  }).join('');
+}
+
+function setFilter(sid) {
+  filterSubject = sid;
+  renderFilter();
+  renderList();
+}
+
+function renderList() {
+  const el = document.getElementById('admin-course-list');
+  const filtered = filterSubject === 'all' ? courses : courses.filter(c => c.subject_id === filterSubject);
+  document.getElementById('course-count').textContent = filtered.length + ' 部';
+
+  if (!filtered.length) {
+    el.innerHTML = '<div class="empty-admin">🎬 尚無課程影片，請新增第一部！</div>';
+    return;
+  }
+
+  el.innerHTML = `<table class="course-table">
+    <thead><tr>
+      <th>縮圖</th><th>標題 / 科目</th><th>YouTube 連結</th><th>新增時間</th><th>操作</th>
+    </tr></thead>
+    <tbody>${filtered.map(c => {
+      const vid = extractYouTubeId(c.youtube_url);
+      const thumb = vid ? `https://img.youtube.com/vi/${vid}/mqdefault.jpg` : null;
+      const date = new Date(c.created_at).toLocaleDateString('zh-TW');
+      return `<tr>
+        <td>${thumb ? `<img class="thumb-sm" src="${thumb}" alt="">` : '<div class="thumb-placeholder">🎬</div>'}</td>
+        <td>
+          <div class="course-name">${c.title}</div>
+          <span class="course-subject-tag">${SUBJECTS[c.subject_id] || c.subject_id}</span>
+          ${c.description ? `<div class="course-desc-sm">${c.description}</div>` : ''}
+        </td>
+        <td><a class="yt-link" href="${c.youtube_url}" target="_blank">開啟 YouTube ↗</a></td>
+        <td style="font-size:0.78rem;color:var(--ink-soft);">${date}</td>
+        <td><button class="btn-delete" onclick="deleteCourse('${c.id}')">刪除</button></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+function extractYouTubeId(url) {
+  if (!url) return null;
+  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+function previewVideo() {
+  const url = document.getElementById('f-url').value;
+  const vid = extractYouTubeId(url);
+  const area = document.getElementById('preview-area');
+  const iframe = document.getElementById('preview-iframe');
+  if (vid) {
+    iframe.src = `https://www.youtube.com/embed/${vid}`;
+    area.classList.add('show');
+  } else {
+    area.classList.remove('show');
+    iframe.src = '';
+  }
+}
+
+async function addCourse() {
+  const subject = document.getElementById('f-subject').value;
+  const title = document.getElementById('f-title').value.trim();
+  const url = document.getElementById('f-url').value.trim();
+  const desc = document.getElementById('f-desc').value.trim();
+  const msgEl = document.getElementById('form-msg');
+
+  msgEl.className = 'msg';
+  if (!subject || !title || !url) { showMsg('請填寫科目、標題和 YouTube 網址', 'error'); return; }
+  if (!extractYouTubeId(url)) { showMsg('YouTube 網址格式不正確，請確認後再試', 'error'); return; }
+
+  const btn = document.getElementById('btn-add');
+  const btnText = document.getElementById('btn-add-text');
+  btn.disabled = true;
+  btnText.innerHTML = '<div class="spinner"></div>';
+
+  const { error } = await db.from('courses').insert({
+    subject_id: subject, title, youtube_url: url,
+    description: desc || null,
+  });
+
+  btn.disabled = false;
+  btnText.textContent = '新增影片';
+
+  if (error) { showMsg('新增失敗：' + error.message, 'error'); return; }
+  showMsg('✅ 影片新增成功！學生現在可以在「觀看課程」看到它。', 'success');
+  clearForm();
+  await loadCourses();
+}
+
+async function deleteCourse(id) {
+  if (!confirm('確定要刪除這部影片嗎？')) return;
+  const { error } = await db.from('courses').delete().eq('id', id);
+  if (!error) await loadCourses();
+}
+
+function clearForm() {
+  document.getElementById('f-subject').value = '';
+  document.getElementById('f-title').value = '';
+  document.getElementById('f-url').value = '';
+  document.getElementById('f-desc').value = '';
+  document.getElementById('preview-area').classList.remove('show');
+  document.getElementById('preview-iframe').src = '';
+}
+
+function showMsg(text, type) {
+  const el = document.getElementById('form-msg');
+  el.textContent = text;
+  el.className = 'msg ' + type;
+  setTimeout(() => { el.className = 'msg'; }, 5000);
+}
+
+async function handleLogout() {
+  await db.auth.signOut();
+  window.location.href = 'auth.html';
+}
+
+init();
+</script>
+</body>
+</html>
