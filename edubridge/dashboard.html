@@ -762,6 +762,7 @@ function showPage(name) {
   document.getElementById('page-' + name).classList.add('active');
   event.currentTarget.classList.add('active');
   if (name === 'ability') renderAbility();
+  if (name === 'courses') loadCourses();
   if (name === 'wrong') renderWrongQuestions();
 }
 
